@@ -1,0 +1,215 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// Core Entity Models
+// ============================================
+
+// UserProfile - Stores confirmed learning contract inputs from questionnaire
+model UserProfile {
+  id               String   @id @default(uuid())
+
+  // Section 1 - Background & Baseline
+  role             String
+  baselineSkills   String[]
+  priorExperience  String
+
+  // Section 2 - Goals & Outcomes
+  goals            String[]
+  outcomes         String[]
+  masteryLevel     String
+
+  // Section 3 - Learning Structure
+  learningFlow     String
+  complexityPref   String
+  troubleshooting  String
+
+  // Section 4 - Platform & Tooling
+  platform         String
+  toolInstallComfort String
+
+  // Section 5 - Time & Consistency
+  dailyMinutes     Int
+  weeklyHours      Int
+  pacingPref       String
+
+  // Section 6 - Learning Style & Depth
+  learningStyle    String[]
+  frustrationPref  String
+  depthPref        String
+
+  // Section 7 - Learning Comfort & Accessibility
+  comfortPrefs     Json // {text_first, video_limit, overload_triggers, focus_mode, ui_toggles}
+
+  // Section 8 - Application & Proof-of-Work
+  applicationPref  String
+  trackingPref     String
+  evidencePref     String
+
+  // Metadata
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  learningStrategy LearningStrategy?
+  dailyPlans       DailyPlan[]
+  memoryEntries    MemoryEntry[]
+
+  @@index([createdAt])
+}
+
+// LearningStrategy - Derived decisions used to assemble daily plans
+model LearningStrategy {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+
+  // Strategy fields
+  startLevel           String
+  phaseWeighting       Json     // Weighting for different learning phases
+  dailySlicePolicy     String   // How to structure daily content
+  applicationFrequency String   // How often to include application moments
+  contentFormatPolicy  Json     // Format preferences (text, video, diagrams)
+  linkBudgetPolicy     String   // How many external links to show
+
+  // Metadata
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Relations
+  user                 UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Topic - Allows multiple technical topics in system
+model Topic {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String
+  tags        String[]
+
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  concepts    Concept[]
+  dailyPlans  DailyPlan[]
+  memoryEntries MemoryEntry[]
+
+  @@index([name])
+}
+
+// Concept - Single concept node for sequencing and daily slicing
+model Concept {
+  id                  String   @id @default(uuid())
+  topicId             String
+
+  // Concept fields
+  title               String
+  prereqIds           String[] // Array of concept IDs that are prerequisites
+  difficulty          String   // e.g., "beginner", "intermediate", "advanced"
+  whyItMatters        String   // Single sentence explaining importance
+  commonConfusions    String[] // 1-2 common misconceptions or confusions
+  exampleTemplate     String   @db.Text // Minimal hands-on example
+  applicationTemplate String   @db.Text // Optional application task template
+
+  // Metadata
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  topic               Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  memoryEntries       MemoryEntry[]
+
+  @@index([topicId])
+  @@index([difficulty])
+}
+
+// DailyPlan - Stores upcoming daily schedule for a user
+model DailyPlan {
+  id              String   @id @default(uuid())
+  userId          String
+  topicId         String
+
+  // Plan fields
+  generatedAt     DateTime
+  conceptSequence String[] // Ordered array of concept IDs
+
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  user            UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic           Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([topicId])
+  @@index([generatedAt])
+}
+
+// MemoryEntry - System of record for learning and application
+model MemoryEntry {
+  id             String   @id @default(uuid())
+  userId         String
+  topicId        String
+  conceptId      String
+
+  // Memory fields
+  reflectionText String   @db.Text // User's reflection on what changed/unclear
+  actionTaken    String?  @db.Text // Optional: what the user built/applied
+  tags           String[] // e.g., ["docker", "containers", "beginner", "phase-1"]
+
+  // Metadata
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  user           UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic          Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  concept        Concept  @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  evidenceItems  EvidenceItem[]
+
+  @@index([userId])
+  @@index([topicId])
+  @@index([conceptId])
+  @@index([createdAt])
+  @@index([tags])
+}
+
+// EvidenceItem - Makes memory proof-backed and supports proof views
+model EvidenceItem {
+  id             String   @id @default(uuid())
+  memoryEntryId  String
+
+  // Evidence fields
+  type           String   // e.g., "github", "execution", "artifact", "link"
+  urlOrBlobRef   String   @db.Text // URL or reference to stored blob
+  label          String   // User-friendly description
+  sourceType     String   // "verifiable" (GitHub link) or "user-provided" (screenshot/paste)
+  visibility     String   @default("private") // "private" or "shareable"
+
+  // Metadata
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  memoryEntry    MemoryEntry @relation(fields: [memoryEntryId], references: [id], onDelete: Cascade)
+
+  @@index([memoryEntryId])
+  @@index([type])
+  @@index([sourceType])
+}

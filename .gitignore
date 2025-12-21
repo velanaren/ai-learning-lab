@@ -48,3 +48,5 @@ yarn-error.log*
 *.sqlite
 *.db
 /data
+
+/src/generated/prisma
