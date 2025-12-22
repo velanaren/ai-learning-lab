@@ -79,7 +79,7 @@ const customJestConfig = {
 
   // Transform ignore patterns
   transformIgnorePatterns: [
-    '/node_modules/',
+    '/node_modules/(?!groq-sdk|formdata-node|web-streams-polyfill|fetch-blob|node-domexception)',
     '^.+\\.module\\.(css|sass|scss)$',
   ],
 
