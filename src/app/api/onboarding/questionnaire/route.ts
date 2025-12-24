@@ -8,7 +8,6 @@
  */
 
 import { NextRequest } from 'next/server';
-import { z } from 'zod';
 import {
   successResponse,
   errorResponse,
@@ -102,12 +101,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse and validate request body
-    const body = await parseRequestBody<QuestionnaireRequest>(
+    await parseRequestBody<QuestionnaireRequest>(
       request,
       createUserProfileInputSchema
     );
 
     // TODO: Save to database
+    // Note: body validation is performed, but not used until database integration
     // In production:
     // const profile = await prisma.userProfile.upsert({
     //   where: { userId: auth.userId },

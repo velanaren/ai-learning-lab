@@ -17,10 +17,7 @@ import {
   requireAuth,
   ApiErrorCode,
 } from '@/lib/apiUtils';
-import {
-  learningContractSummarySchema,
-  type LearningContractSummary,
-} from '@/types/learningStrategy';
+import { learningContractSummarySchema } from '@/types/learningStrategy';
 
 // ============================================
 // Request/Response Schemas
